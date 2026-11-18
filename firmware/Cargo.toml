@@ -1,0 +1,38 @@
+[package]
+name = "c6-mic-firmware"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+
+[[bin]]
+name = "c6-mic-firmware"
+path = "./src/main.rs"
+
+[dependencies]
+# ESP-HAL & Bootloader ecosystem (ESP32-C6)
+esp-hal = { version = "~1.0", features = ["esp32c6", "unstable"] }
+esp-hal-smartled = { version = "0.17.0", features = ["esp32c6"] }
+esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c6"] }
+
+# Logging & Panics
+esp-backtrace = { version = "0.18.0", features = [
+  "esp32c6",
+  "panic-handler",
+  "println",
+] }
+esp-println = { version = "0.16.0", features = ["esp32c6"] }
+
+# LED & IO traits
+smart-leds = "0.4.0"
+nb = "1.1.0"
+
+# Optimization profiles for microcontrollers (from FarmSim-ESP32)
+[profile.dev]
+# Keep size small and enable optimizations even in debug builds
+opt-level = "s"
+
+[profile.release]
+opt-level = "s"
+debug = 2          # Retain debug symbols for probe-rs / espflash
+lto = "fat"        # Full link-time optimization
+codegen-units = 1  # Best optimization at the cost of compile time
