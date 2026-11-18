@@ -1,6 +1,6 @@
 use std::{
   env,
-  io::{BufRead, BufReader, Write},
+  io::{BufRead, BufReader, Read, Write},
   process::{Command, Stdio},
   thread,
   time::Duration,
@@ -45,6 +45,30 @@ fn main() {
       Ok(mut port) => {
         println!("Verbunden mit {}. Synchronisiere Status...", device_path);
         let _ = send_current_state(&mut port, &wpctl_bin);
+
+        // Mute-Taster: Firmware sendet 'T' -> Mikrofon toggeln. LED folgt über pactl subscribe.
+        match port.try_clone() {
+          Ok(mut reader) => {
+            let wpctl_bin = wpctl_bin.clone();
+            thread::spawn(move || {
+              let mut buf = [0u8; 16];
+              loop {
+                match reader.read(&mut buf) {
+                  Ok(n) => {
+                    if buf[..n].contains(&b'T') {
+                      let _ = Command::new(&wpctl_bin)
+                        .args(["set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"])
+                        .status();
+                    }
+                  }
+                  Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {}
+                  Err(_) => break,
+                }
+              }
+            });
+          }
+          Err(e) => eprintln!("Lese-Handle für Taster fehlgeschlagen: {}", e),
+        }
 
         // Starte pactl subscribe für verzögerungsfreie Events
         let mut child = match Command::new(&pactl_bin)

@@ -9,6 +9,7 @@ use esp_backtrace as _;
 use esp_hal::{
   clock::CpuClock,
   delay::Delay,
+  gpio::{Input, InputConfig, Pull},
   main,
   rmt::Rmt,
   time::{Duration, Rate},
@@ -22,6 +23,7 @@ use smart_leds::{RGB8, SmartLedsWrite, brightness};
 esp_bootloader_esp_idf::esp_app_desc!();
 
 const BRIGHTNESS: u8 = 25; // 0..255 (25 ist gut sichtbar, blendet aber nicht)
+const DEBOUNCE_TICKS: u8 = 4; // 4 × 5 ms Schleife = 20 ms stabil Low bis Druck zählt
 
 #[main]
 fn main() -> ! {
@@ -43,6 +45,10 @@ fn main() -> ! {
 
   // USB-Serial-JTAG Schnittstelle initialisieren
   let mut usb_serial = UsbSerialJtag::new(peripherals.USB_DEVICE);
+
+  // Mute-Taster zwischen GPIO 19 und GND (interner Pull-up, gedrückt = Low)
+  let button = Input::new(peripherals.GPIO19, InputConfig::default().with_pull(Pull::Up));
+  let mut low_ticks: u8 = 0;
 
   // Hinweis: Manche C6 Super Mini Boards nutzen RGB statt GRB.
   // Falls Rot und Grün vertauscht sind, einfach die ersten zwei Werte in RGB8::new() tauschen.
@@ -69,6 +75,20 @@ fn main() -> ! {
       if let Some(c) = target_color {
         let _ = led.write(brightness([c].into_iter(), BRIGHTNESS));
       }
+    }
+
+    // Entprellen: genau einmal senden, sobald der Taster DEBOUNCE_TICKS lang Low ist
+    if button.is_low() {
+      if low_ticks < DEBOUNCE_TICKS {
+        low_ticks += 1;
+        if low_ticks == DEBOUNCE_TICKS {
+          // Fehler ignorieren: ohne verbundenen Host läuft der TX-Puffer voll
+          let _ = usb_serial.write_byte_nb(b'T');
+          let _ = usb_serial.flush_tx_nb();
+        }
+      }
+    } else {
+      low_ticks = 0;
     }
 
     delay.delay_millis(5);

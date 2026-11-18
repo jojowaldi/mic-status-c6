@@ -35,6 +35,10 @@ mic-status-c6/
 | `'U'` | Mikrofon Aktiv (Unmuted) | **Grün** (`0, 255, 0`) |
 | `'O'` | Aus | **Aus** (`0, 0, 0`) |
 
+## Mute-Taster (GPIO 19)
+
+Taster zwischen **GPIO 19** und **GND** (interner Pull-up, 20 ms Entprellung). Bei Druck sendet die Firmware `'T'` an den Host; der Daemon führt `wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle` aus, die LED folgt über `pactl subscribe`. Ohne laufenden Daemon hat der Taster keine Wirkung.
+
 > **Hinweis zu GRB / RGB**: `esp-hal-smartled` sendet standardmäßig im `GRB`-Protokoll. Falls dein C6 Super Mini Board `RGB` erwartet und Rot/Grün vertauscht sind, tausche die ersten beiden Werte in `RGB8::new(...)` in `firmware/src/main.rs`.
 
 ---
